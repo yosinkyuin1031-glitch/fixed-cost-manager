@@ -1,101 +1,190 @@
-import Image from "next/image";
+'use client';
+
+import { useState, useEffect, useMemo } from 'react';
+import { FixedCost, Category, CATEGORIES } from './types';
+import { loadCosts, saveCosts, exportToCSV, getUpcomingPayments, formatCurrency } from './utils';
+import Summary from './components/Summary';
+import CostForm from './components/CostForm';
+import CostList from './components/CostList';
+
+type Tab = 'summary' | 'list';
+type FilterCategory = Category | 'すべて';
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [costs, setCosts] = useState<FixedCost[]>([]);
+  const [tab, setTab] = useState<Tab>('summary');
+  const [showForm, setShowForm] = useState(false);
+  const [editCost, setEditCost] = useState<FixedCost | null>(null);
+  const [filterCategory, setFilterCategory] = useState<FilterCategory>('すべて');
+  const [showUpcoming, setShowUpcoming] = useState(false);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  useEffect(() => {
+    setCosts(loadCosts());
+  }, []);
+
+  const upcoming = useMemo(() => getUpcomingPayments(costs), [costs]);
+
+  const filteredCosts = useMemo(() => {
+    if (filterCategory === 'すべて') return costs;
+    return costs.filter(c => c.category === filterCategory);
+  }, [costs, filterCategory]);
+
+  const handleSave = (cost: FixedCost) => {
+    const updated = costs.some(c => c.id === cost.id)
+      ? costs.map(c => c.id === cost.id ? cost : c)
+      : [...costs, cost];
+    setCosts(updated);
+    saveCosts(updated);
+    setShowForm(false);
+    setEditCost(null);
+  };
+
+  const handleToggle = (id: string) => {
+    const updated = costs.map(c =>
+      c.id === id ? { ...c, isActive: !c.isActive, updatedAt: new Date().toISOString() } : c
+    );
+    setCosts(updated);
+    saveCosts(updated);
+  };
+
+  const handleDelete = (id: string) => {
+    const updated = costs.filter(c => c.id !== id);
+    setCosts(updated);
+    saveCosts(updated);
+  };
+
+  const handleEdit = (cost: FixedCost) => {
+    setEditCost(cost);
+    setShowForm(true);
+  };
+
+  const handleExportCSV = () => {
+    const csv = exportToCSV(costs);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `固定費一覧_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* ヘッダー */}
+      <header className="bg-white border-b border-gray-100 sticky top-0 z-40">
+        <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
+          <h1 className="text-lg font-bold text-gray-800">固定費管理</h1>
+          <div className="flex items-center gap-2">
+            {upcoming.length > 0 && (
+              <button
+                onClick={() => setShowUpcoming(!showUpcoming)}
+                className="relative p-2 text-gray-500 hover:text-gray-700"
+              >
+                🔔
+                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">
+                  {upcoming.length}
+                </span>
+              </button>
+            )}
+            <button
+              onClick={handleExportCSV}
+              className="p-2 text-gray-400 hover:text-gray-600 text-sm"
+              title="CSV出力"
+            >
+              📥
+            </button>
+          </div>
         </div>
+      </header>
+
+      {/* 支払予定通知 */}
+      {showUpcoming && upcoming.length > 0 && (
+        <div className="max-w-lg mx-auto px-4 pt-3">
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+            <p className="text-sm font-medium text-amber-800 mb-2">📅 今後7日間の支払予定</p>
+            {upcoming.map(cost => (
+              <div key={cost.id} className="flex justify-between text-sm py-1">
+                <span className="text-amber-700">{cost.paymentDay}日 - {cost.name}</span>
+                <span className="font-medium text-amber-800">{formatCurrency(cost.amount)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* タブ */}
+      <div className="max-w-lg mx-auto px-4 pt-4">
+        <div className="flex bg-gray-100 rounded-xl p-1 mb-4">
+          <button
+            onClick={() => setTab('summary')}
+            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
+              tab === 'summary' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500'
+            }`}
+          >
+            サマリー
+          </button>
+          <button
+            onClick={() => setTab('list')}
+            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
+              tab === 'list' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500'
+            }`}
+          >
+            一覧
+          </button>
+        </div>
+      </div>
+
+      {/* メインコンテンツ */}
+      <main className="max-w-lg mx-auto px-4 pb-24">
+        {tab === 'summary' ? (
+          <Summary costs={costs} />
+        ) : (
+          <>
+            {/* カテゴリフィルター */}
+            <div className="flex gap-2 overflow-x-auto pb-3 mb-3 scrollbar-hide">
+              {(['すべて', ...CATEGORIES] as FilterCategory[]).map(c => (
+                <button
+                  key={c}
+                  onClick={() => setFilterCategory(c)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
+                    filterCategory === c
+                      ? 'bg-gray-800 text-white'
+                      : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                  }`}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+            <CostList
+              costs={filteredCosts}
+              onEdit={handleEdit}
+              onToggle={handleToggle}
+              onDelete={handleDelete}
+            />
+          </>
+        )}
       </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+
+      {/* 追加ボタン（フローティング） */}
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40">
+        <button
+          onClick={() => { setEditCost(null); setShowForm(true); }}
+          className="bg-gray-800 text-white px-6 py-3 rounded-full shadow-lg hover:bg-gray-700 transition-all text-sm font-medium flex items-center gap-2"
         >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+          <span className="text-lg">＋</span> 固定費を追加
+        </button>
+      </div>
+
+      {/* フォームモーダル */}
+      {showForm && (
+        <CostForm
+          onSave={handleSave}
+          onCancel={() => { setShowForm(false); setEditCost(null); }}
+          editCost={editCost}
+        />
+      )}
     </div>
   );
 }
