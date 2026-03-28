@@ -18,6 +18,7 @@ export default function CostForm({ onSave, onCancel, editCost }: Props) {
   const [paymentDay, setPaymentDay] = useState('27');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('口座引落');
   const [memo, setMemo] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (editCost) {
@@ -33,7 +34,11 @@ export default function CostForm({ onSave, onCancel, editCost }: Props) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !amount) return;
+    const newErrors: Record<string, string> = {};
+    if (!name.trim()) newErrors.name = '項目名は必須です';
+    if (!amount || parseInt(amount) <= 0) newErrors.amount = '正しい金額を入力してください';
+    setFieldErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) return;
 
     const cost: FixedCost = {
       id: editCost?.id || generateId(),
@@ -58,7 +63,7 @@ export default function CostForm({ onSave, onCancel, editCost }: Props) {
           <h2 className="text-lg font-bold text-gray-800">
             {editCost ? '固定費を編集' : '固定費を追加'}
           </h2>
-          <button onClick={onCancel} className="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+          <button onClick={onCancel} aria-label="閉じる" className="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
@@ -89,11 +94,13 @@ export default function CostForm({ onSave, onCancel, editCost }: Props) {
             <input
               type="text"
               value={name}
-              onChange={e => setName(e.target.value)}
+              onChange={e => { setName(e.target.value); setFieldErrors(prev => ({ ...prev, name: '' })); }}
               placeholder="例: 家賃、電気代、生命保険"
-              className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-gray-400 focus:outline-none text-sm"
+              aria-label="項目名"
+              className={`w-full px-4 py-3 rounded-lg border focus:outline-none text-sm ${fieldErrors.name ? 'border-red-400 focus:border-red-400' : 'border-gray-200 focus:border-gray-400'}`}
               required
             />
+            {fieldErrors.name && <p className="text-xs text-red-500 mt-1">{fieldErrors.name}</p>}
           </div>
 
           {/* 金額 */}
@@ -103,13 +110,15 @@ export default function CostForm({ onSave, onCancel, editCost }: Props) {
               <input
                 type="number"
                 value={amount}
-                onChange={e => setAmount(e.target.value)}
+                onChange={e => { setAmount(e.target.value); setFieldErrors(prev => ({ ...prev, amount: '' })); }}
                 placeholder="0"
-                className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-gray-400 focus:outline-none text-sm pr-10"
+                aria-label="金額"
+                className={`w-full px-4 py-3 rounded-lg border focus:outline-none text-sm pr-10 ${fieldErrors.amount ? 'border-red-400 focus:border-red-400' : 'border-gray-200 focus:border-gray-400'}`}
                 required
               />
               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm">円</span>
             </div>
+            {fieldErrors.amount && <p className="text-xs text-red-500 mt-1">{fieldErrors.amount}</p>}
           </div>
 
           {/* 支払サイクル */}

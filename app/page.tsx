@@ -79,6 +79,7 @@ export default function Home() {
             {upcoming.length > 0 && (
               <button
                 onClick={() => setShowUpcoming(!showUpcoming)}
+                aria-label="支払予定通知を表示"
                 className="relative p-2 text-gray-500 hover:text-gray-700"
               >
                 🔔
@@ -91,6 +92,7 @@ export default function Home() {
               onClick={handleExportCSV}
               className="p-2 text-gray-400 hover:text-gray-600 text-sm"
               title="CSV出力"
+              aria-label="CSV出力"
             >
               📥
             </button>
@@ -118,6 +120,8 @@ export default function Home() {
         <div className="flex bg-gray-100 rounded-xl p-1 mb-4">
           <button
             onClick={() => setTab('summary')}
+            aria-label="サマリータブ"
+            aria-pressed={tab === 'summary'}
             className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
               tab === 'summary' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500'
             }`}
@@ -126,6 +130,8 @@ export default function Home() {
           </button>
           <button
             onClick={() => setTab('list')}
+            aria-label="一覧タブ"
+            aria-pressed={tab === 'list'}
             className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
               tab === 'list' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500'
             }`}
@@ -171,6 +177,7 @@ export default function Home() {
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40">
         <button
           onClick={() => { setEditCost(null); setShowForm(true); }}
+          aria-label="固定費を追加"
           className="bg-gray-800 text-white px-6 py-3 rounded-full shadow-lg hover:bg-gray-700 transition-all text-sm font-medium flex items-center gap-2"
         >
           <span className="text-lg">＋</span> 固定費を追加
